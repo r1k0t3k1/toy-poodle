@@ -1,26 +1,45 @@
 use base64::decode_config;
 
+const BLOCK_SIZE: usize = 16;
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut token_bytes = get_token().await?;
+    let token_backup = token_bytes.clone();
 
     let client = reqwest::Client::new();
 
-    // 最後の16バイトブロックを全て\x00にして送信する
-    let zero_byte_count = 16;
-    token_bytes.truncate(token_bytes.len() - zero_byte_count);
-    for _ in 0..16 {
-        token_bytes.push(0);
+    let block_count = token_bytes.len() / BLOCK_SIZE;
+    let start = (block_count-2)*BLOCK_SIZE;
+    let end = (block_count-1)*BLOCK_SIZE;
+
+    // 最後から二つ目の16バイトブロックを全て\x00にして送信する
+    for i in start..end {
+        token_bytes[i] = 0;
     }
 
-    for i in 0..=255 {
-        //token_bytes.pop();
-        //token_bytes.push(i);
-        token_bytes[31] = i;
-        let result = submit_token(&client, token_bytes.clone()).await?;
-        if result != "decrypt error" {
-            println!("{}:{}:{:?}", token_bytes.len(), i, &result);
+    let mut exposure_bytes: Vec<u8> = vec![];
+
+    // 最後から二つ目のブロックのブロックサイズ分ケツから回す(16回)
+    for (b_count, b_i) in (start..end).rev().enumerate() {
+        for i in 0..=255 {
+            token_bytes[b_i] = i;
+            let mut clone = token_bytes.clone();
+            for (c, i) in (b_i..end).rev().enumerate() {
+                clone[i] ^= (c + 1) as u8;
+                clone[i] ^= (exposure_bytes.len() + 1) as u8;
+            }
+            let result = submit_token(&client, clone.clone()).await?;
+            if result != "decrypt error" {
+                exposure_bytes.insert(0, i ^ (b_count+1) as u8);
+                println!("exposure bytes:{:?}", exposure_bytes);
+                break;
+            }
         }
+    }
+
+    for (i,v) in (start..end).enumerate() {
+        print!("{},", exposure_bytes[i] ^ token_backup[v]);
     }
     Ok(())
 }
