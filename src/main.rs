@@ -38,8 +38,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    for (i,v) in (start..end).enumerate() {
-        print!("{},", exposure_bytes[i] ^ token_backup[v]);
+    for i in 0..BLOCK_SIZE {
+        print!("{},", exposure_bytes[i] ^ token_backup[i + BLOCK_SIZE]);
     }
     Ok(())
 }
