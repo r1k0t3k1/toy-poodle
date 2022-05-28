@@ -12,7 +12,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //    println!("----- finish decryption attack-----\n");
 //
         println!("----- start encryption attack-----");
-        let mut tampered_plain_text = b"{\"id\":9,\"admin\":false}".to_vec();
+        let mut tampered_plain_text = b"{\"id\":9,\"flag\":true}".to_vec();
         let result = encription_attack(&mut tampered_plain_text).await?;
         println!("[+] Result: {}", result);
         println!("----- finish encryption attack-----");
